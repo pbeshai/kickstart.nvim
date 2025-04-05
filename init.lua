@@ -426,7 +426,7 @@ require('lazy').setup({
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
-      { 'danielfalk/smart-open.nvim' },
+      -- { 'danielfalk/smart-open.nvim' },
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
@@ -492,14 +492,14 @@ require('lazy').setup({
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
-      pcall(require('telescope').load_extension, 'smart_open')
-      vim.keymap.set('n', '<C-p>', require('telescope').extensions.smart_open.smart_open, { desc = '[S]earch s[M]art git files, open buffers, recent files' })
-      vim.keymap.set(
-        'n',
-        '<leader>sm',
-        require('telescope').extensions.smart_open.smart_open,
-        { desc = '[S]earch s[M]art git files, open buffers, recent files' }
-      )
+      -- pcall(require('telescope').load_extension, 'smart_open')
+      -- vim.keymap.set('n', '<C-p>', require('telescope').extensions.smart_open.smart_open, { desc = '[S]earch s[M]art git files, open buffers, recent files' })
+      -- vim.keymap.set(
+      --   'n',
+      --   '<leader>sm',
+      --   require('telescope').extensions.smart_open.smart_open,
+      --   { desc = '[S]earch s[M]art git files, open buffers, recent files' }
+      -- )
 
       -- See `:help telescope.builtin` (note more added in smart_open plugin setup)
       local builtin = require 'telescope.builtin'
@@ -539,21 +539,21 @@ require('lazy').setup({
       end, { desc = '[S]earch [N]eovim files' })
     end,
   },
-  -- make it so telescope shmacks recent files to the top
-  {
-    'danielfalk/smart-open.nvim',
-    branch = '0.2.x',
-    config = function()
-      require('telescope').load_extension 'smart_open'
-    end,
-    dependencies = {
-      'kkharji/sqlite.lua',
-      -- Only required if using match_algorithm fzf
-      { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
-      -- Optional.  If installed, native fzy will be used when match_algorithm is fzy
-      { 'nvim-telescope/telescope-fzy-native.nvim' },
-    },
-  },
+  -- -- make it so telescope shmacks recent files to the top
+  -- {
+  --   'danielfalk/smart-open.nvim',
+  --   branch = '0.2.x',
+  --   config = function()
+  --     require('telescope').load_extension 'smart_open'
+  --   end,
+  --   dependencies = {
+  --     'kkharji/sqlite.lua',
+  --     -- Only required if using match_algorithm fzf
+  --     { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
+  --     -- Optional.  If installed, native fzy will be used when match_algorithm is fzy
+  --     { 'nvim-telescope/telescope-fzy-native.nvim' },
+  --   },
+  -- },
 
   -- LSP Plugins
   {
