@@ -83,6 +83,8 @@ I hope you enjoy your Neovim journey,
 
 P.S. You can delete this when you're done too. It's your config now! :)
 --]]
+-- disable soft wrap
+vim.opt.wrap = false
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
@@ -91,7 +93,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -102,7 +104,7 @@ vim.g.have_nerd_font = false
 vim.opt.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.opt.relativenumber = true
+vim.opt.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
@@ -114,9 +116,14 @@ vim.opt.showmode = false
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
-vim.schedule(function()
-  vim.opt.clipboard = 'unnamedplus'
-end)
+-- vim.schedule(function()
+--   vim.opt.clipboard = 'unnamedplus'
+-- end)
+-- add commands to yank to system clipboard
+vim.keymap.set({ 'n', 'v', 'x' }, '<leader>y', '"+y', { noremap = true, silent = true, desc = '[Y]ank to clipboard' })
+vim.keymap.set({ 'n', 'v', 'x' }, '<leader>Y', '"+yy', { noremap = true, silent = true, desc = '[Y]ank line to clipboard' })
+vim.keymap.set({ 'v', 'x' }, '<leader>p', '"_dP', { noremap = true, silent = true, desc = '[P]aste without overwriting register' })
+
 
 -- Enable break indent
 vim.opt.breakindent = true
@@ -247,6 +254,51 @@ require('lazy').setup({
   --
   -- Use `opts = {}` to automatically pass options to a plugin's `setup()` function, forcing the plugin to be loaded.
   --
+  --  This is equivalent to:
+  --    require('Comment').setup({})
+
+  -- "gc" to comment visual regions/lines
+  {
+    'numToStr/Comment.nvim',
+    -- opts = { },
+    config = function()
+      -- this does a deep merge, so partial supply is actually fine.
+      ---@diagnostic disable-next-line: missing-fields
+      require('Comment').setup {
+        toggler = {
+          line = 'gc',
+          block = 'gb',
+        },
+        mappings = {
+          basic = true,
+          extra = false,
+        },
+      }
+
+      -- don't require gcc just do gc since we don't care about other fancier commands
+      vim.keymap.del('n', 'gcc')
+
+      -- in kitty this just works for cmd+/
+      vim.keymap.set({ 'n', 'i' }, '<D-/>', require('Comment.api').toggle.linewise.current, { noremap = true, silent = true })
+      vim.keymap.set('v', '<D-/>', function()
+        -- https://github.com/numToStr/Comment.nvim/issues/427
+        -- https://github.com/numToStr/Comment.nvim/issues/474
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, true, true), 'nx', false)
+        require('Comment.api').locked 'toggle.linewise'(vim.fn.visualmode())
+        vim.cmd 'normal! gv'
+      end, { noremap = true, silent = true })
+
+      -- Note I had to configure iTerm to send hex code "1b 0c" to mimic this when I press cmd+/
+      vim.keymap.set({ 'n', 'i' }, '<M-C-L>', require('Comment.api').toggle.linewise.current, { noremap = true, silent = true })
+      vim.keymap.set('v', '<M-C-L>', function()
+        -- https://github.com/numToStr/Comment.nvim/issues/427
+        -- https://github.com/numToStr/Comment.nvim/issues/474
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, true, true), 'nx', false)
+        require('Comment.api').locked 'toggle.linewise'(vim.fn.visualmode())
+        vim.cmd 'normal! gv'
+      end, { noremap = true, silent = true })
+    end,
+  },
 
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
   -- If you prefer to call `setup` explicitly, use:
@@ -374,6 +426,7 @@ require('lazy').setup({
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
+      { 'danielfalk/smart-open.nvim' },
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
@@ -404,11 +457,30 @@ require('lazy').setup({
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
+        defaults = {
+          sorting_strategy = 'ascending',
+          layout_strategy = 'horizontal',
+          dynamic_preview_title = true,
+
+          path_display = {
+            truncate = true,
+            -- shorten = { len = 3, exclude = { 1, 2, -1, -2 } },
+          },
+          layout_config = {
+            prompt_position = 'top',
+          },
+
+          mappings = {
+            --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+            n = {
+              ['<c-d>'] = require('telescope.actions').delete_buffer,
+            }, -- n
+            i = {
+              ['<C-h>'] = 'which_key',
+              ['<c-d>'] = require('telescope.actions').delete_buffer,
+            }, -- i
+          },
+        },
         -- pickers = {}
         extensions = {
           ['ui-select'] = {
@@ -420,9 +492,18 @@ require('lazy').setup({
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'smart_open')
+      vim.keymap.set('n', '<C-p>', require('telescope').extensions.smart_open.smart_open, { desc = '[S]earch s[M]art git files, open buffers, recent files' })
+      vim.keymap.set(
+        'n',
+        '<leader>sm',
+        require('telescope').extensions.smart_open.smart_open,
+        { desc = '[S]earch s[M]art git files, open buffers, recent files' }
+      )
 
-      -- See `:help telescope.builtin`
+      -- See `:help telescope.builtin` (note more added in smart_open plugin setup)
       local builtin = require 'telescope.builtin'
+      vim.keymap.set('n', '<leader>st', builtin.git_files, { desc = '[S]earch git files' })
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
       vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
@@ -457,6 +538,21 @@ require('lazy').setup({
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
     end,
+  },
+  -- make it so telescope shmacks recent files to the top
+  {
+    'danielfalk/smart-open.nvim',
+    branch = '0.2.x',
+    config = function()
+      require('telescope').load_extension 'smart_open'
+    end,
+    dependencies = {
+      'kkharji/sqlite.lua',
+      -- Only required if using match_algorithm fzf
+      { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
+      -- Optional.  If installed, native fzy will be used when match_algorithm is fzy
+      { 'nvim-telescope/telescope-fzy-native.nvim' },
+    },
   },
 
   -- LSP Plugins
@@ -671,7 +767,7 @@ require('lazy').setup({
       local servers = {
         -- clangd = {},
         -- gopls = {},
-        -- pyright = {},
+        pyright = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -767,10 +863,12 @@ require('lazy').setup({
       formatters_by_ft = {
         lua = { 'stylua' },
         -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
+        python = { 'isort', 'black' },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        javascript = { { 'prettierd', 'prettier', stop_after_first = true } },
+        typescript = { { 'prettierd', 'prettier', stop_after_first = true } },
+        typescriptreact = { { 'prettierd', 'prettier', stop_after_first = true } },
       },
     },
   },
@@ -893,25 +991,56 @@ require('lazy').setup({
     end,
   },
 
-  { -- You can easily change to a different colorscheme.
+ -- { -- You can easily change to a different colorscheme.
     -- Change the name of the colorscheme plugin below, and then
     -- change the command in the config to whatever the name of that colorscheme is.
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'folke/tokyonight.nvim',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
+    -- 'folke/tokyonight.nvim',
+    -- priority = 1000, -- Make sure to load this before all the other start plugins.
+    -- config = function()
+    --   ---@diagnostic disable-next-line: missing-fields
+    --   require('tokyonight').setup {
+    --     styles = {
+    --       comments = { italic = false }, -- Disable italics in comments
+    --     },
+    --   }
+    -- 
+    --   -- Load the colorscheme here.
+    --   -- Like many other themes, this one has different styles, and you could load
+    --   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
+    --   vim.cmd.colorscheme 'tokyonight-night'
+  -- {
+  --   'catppuccin/nvim',
+  --   name = 'catppuccin',
+  --   priority = 1000,
+  --   init = function()
+  --     require('catppuccin').setup {
+  --       flavour = 'mocha',
+  --       no_italic = true,
+  --       color_overrides = {
+  --         all = {
+  --           base = '#1a1a28',
+  --           -- mantle = '#242424',
+  --           -- crust = '#474747',
+  --         },
+  --       },
+  --     }
+  --
+  --     -- setup must be called before loading
+  --     vim.cmd.colorscheme 'catppuccin'
+  --   end,
+  -- },
+  {
+    'oxfist/night-owl.nvim',
+    lazy = false, -- make sure we load this during startup if it is your main colorscheme
+    priority = 1000, -- make sure to load this before all the other start plugins
     config = function()
-      ---@diagnostic disable-next-line: missing-fields
-      require('tokyonight').setup {
-        styles = {
-          comments = { italic = false }, -- Disable italics in comments
-        },
+      -- load the colorscheme here
+      require('night-owl').setup {
+        italics = false,
       }
-
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
+      vim.cmd.colorscheme 'night-owl'
     end,
   },
 
@@ -981,7 +1110,52 @@ require('lazy').setup({
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
 
-  -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
+  {
+    'folke/trouble.nvim',
+    opts = {}, -- for default options, refer to the configuration section for custom setup.
+    cmd = 'Trouble',
+  },
+  'github/copilot.vim',
+  'mg979/vim-visual-multi',
+  {
+    'nvimdev/dashboard-nvim',
+    event = 'VimEnter',
+    config = function()
+      require('dashboard').setup {
+        -- config
+        config = {
+          week_header = {
+            enable = true,
+          },
+        },
+      }
+    end,
+    dependencies = { { 'nvim-tree/nvim-web-devicons' } },
+  },
+  {
+    'nvim-pack/nvim-spectre',
+    build = false,
+    cmd = 'Spectre',
+    opts = { open_cmd = 'noswapfile vnew' },
+    -- stylua: ignore
+    keys = {
+      { "<leader>rf", function() require("spectre").open() end, desc = "[R]eplace in [F]iles (Spectre)" },
+    },
+  },
+
+  -- {
+  --   'rmagatti/auto-session',
+  --   dependencies = {
+  --     'nvim-telescope/telescope.nvim', -- Only needed if you want to use sesssion lens
+  --   },
+  --   config = function()
+  --     require('auto-session').setup {
+  --       auto_session_suppress_dirs = { '~/', '~/Downloads', '/' },
+  --     }
+  --   end,
+  -- },
+
+  -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
 
@@ -992,9 +1166,9 @@ require('lazy').setup({
   --
   -- require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
-  -- require 'kickstart.plugins.lint',
+  require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -1028,6 +1202,8 @@ require('lazy').setup({
     },
   },
 })
+
+vim.keymap.set({ 'n', 'i', 'x', 'v' }, '<D-s>', '<Cmd>:w<CR>', { noremap = true, silent = true })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
